@@ -1,1 +1,1 @@
-# CS2
+# Onchain Binder Battles
