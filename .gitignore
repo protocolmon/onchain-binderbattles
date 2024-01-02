@@ -1,3 +1,5 @@
 .husky 
 .idea 
 node_modules
+cache
+artifacts
