@@ -5,10 +5,23 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 contract MockERC721 is ERC721 {
     uint256 public tokenIndex;
+    /// @dev temporary for testing
+    mapping(uint256 => mapping(uint256 => uint256)) traits;
 
     constructor() ERC721("Test", "Test") {}
 
-    function mint(address to) external {
-        _mint(to, tokenIndex++);
+    function mint(address to, uint256[] calldata _traits) external {
+        uint256 index = tokenIndex++;
+        _mint(to, index);
+        for (uint256 i = 0; i < _traits.length; i++) {
+            traits[index][i] = _traits[i];
+        }
+    }
+
+    function trait(
+        uint256 tokenId,
+        uint256 traitId
+    ) external view returns (uint256) {
+        return traits[tokenId][traitId];
     }
 }

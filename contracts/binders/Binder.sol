@@ -1,33 +1,46 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IBinder} from "./interfaces/IBinder.sol";
 import {IParentBinder} from "./interfaces/IParentBinder.sol";
+import "./interfaces/IRequirementChecker.sol";
 
 /**
  * @title Binder.sol
  * @dev Binder.sol contract
+ * Every mention of "share" in this contract does NOT relate to company or revenue shares.
+ * It is simply a fraction of a whole.
  */
-contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
+contract Binder is
+    Initializable,
+    AccessControlUpgradeable,
+    ERC721EnumerableUpgradeable,
+    IBinder
+{
     /***************************
      * STRUCTS                 *
      ***************************/
+
+    struct SlotDefinition {
+        RequirementDefiniton[] requirements;
+    }
 
     struct VersionData {
         uint256 id;
         IParentBinder parentBinder;
     }
 
+    struct BinderNft {
+        mapping(uint256 => Nft) slots;
+    }
+
     struct Nft {
         IERC721 tokenContract;
         uint256 tokenId;
-    }
-
-    struct BinderNft {
-        mapping(uint256 => Nft) slots;
     }
 
     struct NftInput {
@@ -65,20 +78,25 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
      * CONSTANTS               *
      ***************************/
 
+    bytes32 public constant GOVERNANCE_ROLE = keccak256("GOVERNANCE_ROLE");
     uint256 public constant PRECISION = 1e12;
 
     /***************************
      * STORAGE                 *
      ***************************/
 
-    uint256 nftIndex;
+    /// @dev id index for minting binderNfts
+    uint256 public nftIndex;
 
+    /// @dev version => VersionData
     mapping(uint256 => VersionData) public versions;
+    /// @dev list of all added version ids
     uint256[] public versionIds;
 
     /// @dev nftId => BinderNft data
     mapping(uint256 => BinderNft) binderNfts; // TODO add view
 
+    /// @dev sum of all shares
     uint256 public totalUserShares;
     /// @dev user address => shares
     mapping(address => uint256) public userShares;
@@ -89,27 +107,49 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
     /// @dev version => user address => rewardDebt
     mapping(uint256 => mapping(address => uint256)) public userRewardDebt;
 
+    IRequirementChecker public requirementChecker;
+    SlotDefinition[] slotDefinitions; // TODO add view
+
     /***************************
      * INITIALIZER             *
      ***************************/
 
     function initialize(
+        address defaultAdmin,
         string memory name,
-        string memory symbol
+        string memory symbol,
+        IRequirementChecker _requirementChecker,
+        SlotDefinition[] calldata _slotDefinitions
     ) public initializer {
         __ERC721_init(name, symbol);
+
+        __AccessControl_init();
+        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
+        _grantRole(GOVERNANCE_ROLE, defaultAdmin);
+
+        requirementChecker = _requirementChecker;
+        for (uint256 i = 0; i < _slotDefinitions.length; ) {
+            slotDefinitions.push(_slotDefinitions[i]);
+
+            unchecked {
+                i++;
+            }
+        }
     }
 
     /***************************
      * GOVERNANCE FUNCTIONS    *
      ***************************/
 
+    /// @notice Add a new version
+    /// @param version version number
+    /// @param id id of the binder for the specified version known by the parent binder
+    /// @param parentBinder parent binder contract
     function addVersion(
         uint256 version,
         uint256 id,
         IParentBinder parentBinder
-    ) external {
-        // TODO add access control
+    ) external onlyRole(GOVERNANCE_ROLE) {
         versions[version].id = id;
         versions[version].parentBinder = parentBinder;
         versionIds.push(version);
@@ -119,12 +159,18 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
      * PUBLIC EXT. FUNCTIONS   *
      ***************************/
 
+    /// @notice Create a new empty binder nft
+    /// @return id of the new binder nft
     function createBinderNft() external returns (uint256 id) {
         id = nftIndex++;
         _mint(msg.sender, id);
         emit BinderNftCreated(id, msg.sender);
     }
 
+    /// @notice stake nfts to a binder nft
+    /// @param nftId id of the binder nft
+    /// @param nfts list of nfts to stake
+    /// @param replace if true, replace existing nfts in the slot. If false, revert if slot is not empty
     function stakeToBinderNft(
         uint256 nftId,
         NftInput[] calldata nfts,
@@ -142,15 +188,24 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
         for (uint256 i = 0; i < numOfNfts; ) {
             NftInput memory nft = nfts[i];
 
-            // TODO check slot requirements
+            if (
+                nft.slotId >= slotDefinitions.length ||
+                !requirementChecker.check(
+                    address(nft.tokenContract),
+                    nft.tokenId,
+                    slotDefinitions[nft.slotId].requirements
+                )
+            ) {
+                revert InvalidSlot(nft.slotId);
+            }
 
             Nft memory slot = binderNfts[nftId].slots[nft.slotId];
             if (address(slot.tokenContract) != address(0)) {
                 if (replace) {
-                    nft.tokenContract.transferFrom(
+                    slot.tokenContract.transferFrom(
                         address(this),
                         msg.sender,
-                        nft.tokenId
+                        slot.tokenId
                     );
                     // TODO use rarity as shares
                     removedShares += 1000;
@@ -169,6 +224,13 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
                 }
             }
 
+            if (nft.tokenContract.ownerOf(nft.tokenId) != msg.sender) {
+                revert NotTheOwner(
+                    nft.tokenContract.ownerOf(nft.tokenId),
+                    msg.sender,
+                    nft.tokenId
+                );
+            }
             nft.tokenContract.transferFrom(
                 msg.sender,
                 address(this),
@@ -209,9 +271,12 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
             userShares[msg.sender] -= shares;
         }
 
-        _updateRewardDebt();
+        _updateRewardDebt(msg.sender);
     }
 
+    /// @notice unstake nfts from a binder nft
+    /// @param nftId id of the binder nft
+    /// @param nfts list of nfts to unstake
     function unstakeFromBinderNft(
         uint256 nftId,
         NftInput[] calldata nfts
@@ -265,9 +330,12 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
         totalUserShares -= shares;
         userShares[msg.sender] -= shares;
 
-        _updateRewardDebt();
+        _updateRewardDebt(msg.sender);
     }
 
+    /// @notice Claim the rewards for the specified version
+    /// @param user User to claim rewards for
+    /// @param version Version to claim rewards for
     function claimReward(address user, uint256 version) external {
         if (userShares[user] == 0) {
             return;
@@ -278,6 +346,7 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
         _claimReward(user, version);
     }
 
+    /// @notice Update rewards (accPmonPerShare) for all versions
     function updateRewards() public {
         for (uint256 i = 0; i < versionIds.length; ) {
             updateReward(versionIds[i]);
@@ -287,6 +356,8 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
         }
     }
 
+    /// @notice Update reward (accPmonPerShare) for the specified version
+    /// @param version Version to update
     function updateReward(uint256 version) public {
         VersionData memory versionData = versions[version];
         uint256 newAccPmon = versionData.parentBinder.getAndUpdateAccPmon(
@@ -303,15 +374,57 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
         }
     }
 
+    /// @dev See {IERC721-transferFrom}
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public override(ERC721Upgradeable, IERC721) {
+        _prepareBinderNftTransfer(from, to, tokenId);
+        super.transferFrom(from, to, tokenId);
+    }
+
+    /// @dev See {IERC721-safeTransferFrom}.
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory data
+    ) public override(ERC721Upgradeable, IERC721) {
+        _prepareBinderNftTransfer(from, to, tokenId);
+        super.safeTransferFrom(from, to, tokenId, data);
+    }
+
     /***************************
      * INTERNAL FUNCTIONS      *
      ***************************/
 
-    function _updateRewardDebt() internal {
+    /// @dev requires owner check to be done by caller
+    function _prepareBinderNftTransfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) internal {
+        uint256 shares = 0;
+
+        if (shares > 0) {
+            updateRewards();
+
+            _claimRewards(from);
+            userShares[from] -= shares;
+            _updateRewardDebt(from);
+            _claimRewards(to);
+            userShares[to] += shares;
+            _updateRewardDebt(to);
+        }
+    }
+
+    /// @dev requires updateRewards() to be called before this function
+    function _updateRewardDebt(address user) internal {
         for (uint256 i = 0; i < versionIds.length; ) {
             uint256 version = versionIds[i];
-            userRewardDebt[version][msg.sender] =
-                (userShares[msg.sender] * accPmonPerShare[version]) /
+            userRewardDebt[version][user] =
+                (userShares[user] * accPmonPerShare[version]) /
                 PRECISION;
             unchecked {
                 i++;
@@ -319,6 +432,7 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
         }
     }
 
+    /// @dev requires updateRewards() to be called before this function
     function _claimRewards(address user) internal {
         for (uint256 i = 0; i < versionIds.length; ) {
             _claimReward(user, versionIds[i]);
@@ -328,6 +442,7 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
         }
     }
 
+    /// @dev requires updateReward(version) to be called before this function
     function _claimReward(address user, uint256 version) internal {
         if (userShares[user] == 0) {
             return;
@@ -355,6 +470,10 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
      * VIEW FUNCTIONS          *
      ***************************/
 
+    /// @notice Get the current reward amount for a user and version
+    /// @param user the user address
+    /// @param version the version
+    /// @return the current reward amount
     function getCurrentRewardAmount(
         address user,
         uint256 version
@@ -386,5 +505,20 @@ contract Binder is Initializable, ERC721EnumerableUpgradeable, IBinder {
             (userShares[user] * newAccPmonPerShare) /
             PRECISION -
             userRewardDebt[version][user];
+    }
+
+    function getBinderNftShares(uint256 nftId) external view returns (uint256) {
+        return 0; // TODO binderNfts[nftId].shares;
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    )
+        public
+        view
+        override(ERC721EnumerableUpgradeable, AccessControlUpgradeable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }

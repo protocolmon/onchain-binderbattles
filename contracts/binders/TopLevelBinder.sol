@@ -39,6 +39,10 @@ contract TopLevelBinder is
      ***************************/
 
     error InvalidCaller(address expected, address actual);
+    error AlreadyActivated();
+    error VersionNotActivated();
+    error InvalidTotalShares(uint256 expected, uint256 actual);
+    error PmonStoreNotSet();
 
     /***************************
      * EVENTS                  *
@@ -51,6 +55,12 @@ contract TopLevelBinder is
         uint256 share
     );
     event VersionActivated(uint256 indexed version, uint256 indexed timestamp);
+    event RewardClaimed(
+        uint256 indexed version,
+        uint256 indexed id,
+        address indexed user,
+        uint256 reward
+    );
 
     /***************************
      * CONSTANTS               *
@@ -76,6 +86,10 @@ contract TopLevelBinder is
     /// @dev version => Reward data
     mapping(uint256 => Rewards) public rewards;
 
+    /***************************
+     * INITIALIZER             *
+     ***************************/
+
     function initialize(address defaultAdmin, IERC20 _pmon) public initializer {
         __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
@@ -87,33 +101,46 @@ contract TopLevelBinder is
      * GOVERNANCE FUNCTIONS    *
      ***************************/
 
+    /// @notice Add a binder to the pool that is not yet activated
+    /// Can only be called by the governance role
+    /// @param version version to add the binder to
+    /// @param binder binder to add
+    /// @param share share of the binder (fraction of BINDER_SHARE_DIVIDER)
     function addBinder(
         uint256 version,
         IBinder binder,
         uint256 share
     ) external onlyRole(GOVERNANCE_ROLE) {
-        require(
-            versionActivatedAt[version] == 0,
-            "TopLevelBinder: Already activated"
-        );
+        if (versionActivatedAt[version] != 0) {
+            revert AlreadyActivated();
+        }
+
         uint256 id = binderCount[version]++;
         binders[version][id] = Binder(binder, share);
         emit BinderAdded(version, id, address(binder), share);
     }
 
+    /// @notice Activate a version
+    /// Can only be called by the governance role
+    /// @param version version to activate
+    /// @param pmonStore PmonStore contract that holds the PMON rewards
     function activateVersion(
         uint256 version,
         PmonStore pmonStore
     ) external onlyRole(GOVERNANCE_ROLE) {
+        if (address(pmonStore) == address(0)) {
+            revert PmonStoreNotSet();
+        }
+        // TODO check if pmon store is already in use
+
         // ensure total binder shares for version are = BINDER_SHARE_DIVIDER
         uint256 totalShares;
         for (uint256 i = 0; i < binderCount[version]; i++) {
             totalShares += binders[version][i].share;
         }
-        require(
-            totalShares == BINDER_SHARE_DIVIDER,
-            "TopLevelBinder: Invalid total shares"
-        );
+        if (totalShares != BINDER_SHARE_DIVIDER) {
+            revert InvalidTotalShares(BINDER_SHARE_DIVIDER, totalShares);
+        }
         versionActivatedAt[version] = block.timestamp;
         rewards[version].pmonStore = pmonStore;
         emit VersionActivated(version, block.timestamp);
@@ -123,17 +150,15 @@ contract TopLevelBinder is
      * PUBLIC EXT. FUNCTIONS   *
      ***************************/
 
-    /// @dev Can be called by anyone
+    /// @notice Updates the accumulated PMON per share for the specified version and
+    /// save the updated values
+    /// @param version version for the pool to update
     function updateRewards(uint256 version) public {
-        require(
-            versionActivatedAt[version] != 0,
-            "TopLevelBinder: Version not activated"
-        );
+        if (versionActivatedAt[version] == 0) {
+            revert VersionNotActivated();
+        }
+
         Rewards memory rewardData = rewards[version];
-        require(
-            address(rewardData.pmonStore) != address(0),
-            "TopLevelBinder: PMON store not set"
-        );
         uint256 balance = pmon.balanceOf(address(rewardData.pmonStore));
         if (balance > rewardData.lastPmonBalance) {
             rewards[version].accPmonPerShare +=
@@ -143,6 +168,7 @@ contract TopLevelBinder is
         }
     }
 
+    /// @inheritdoc IParentBinder
     function claimReward(
         uint256 version,
         uint256 id,
@@ -157,11 +183,14 @@ contract TopLevelBinder is
         }
 
         if (amount > 0) {
-            // rewards[version].pmonStore.transfer(user, amount);
-            // rewards[version].lastPmonBalance -= amount;
+            rewards[version].pmonStore.transferPmon(user, amount);
+            rewards[version].lastPmonBalance -= amount;
         }
+
+        emit RewardClaimed(version, id, user, amount);
     }
 
+    /// @inheritdoc IParentBinder
     function getAndUpdateAccPmon(
         uint256 version,
         uint256 id
@@ -174,22 +203,23 @@ contract TopLevelBinder is
      * VIEW FUNCTIONS          *
      ***************************/
 
+    /// @inheritdoc IParentBinder
     function getAccPmon(
         uint256 version,
         uint256 id
     ) external view returns (uint256) {
-        require(
-            versionActivatedAt[version] != 0,
-            "TopLevelBinder: Version not activated"
-        );
+        if (versionActivatedAt[version] == 0) {
+            revert VersionNotActivated();
+        }
 
+        // calculate new accPmonPerShare
         Rewards memory rewardData = rewards[version];
-
         uint256 balance = pmon.balanceOf(address(rewardData.pmonStore));
         uint256 newAccPmonPerShare = rewardData.accPmonPerShare +
             (balance - rewardData.lastPmonBalance) /
             BINDER_SHARE_DIVIDER;
 
+        // calculate the accumulated PMON amount for the binder
         return newAccPmonPerShare * binders[version][id].share;
     }
 }
