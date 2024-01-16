@@ -2,6 +2,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import {
   Binder,
+  BinderNft,
   MockERC721,
   MockPmon,
   PmonStore,
@@ -21,6 +22,7 @@ describe("Rewards", function () {
   let topLevelBinder: TopLevelBinder;
   let requirementChecker: RequirementChecker;
   let binder1: Binder, binder2: Binder;
+  let binderNft1: BinderNft, binderNft2: BinderNft;
 
   beforeEach(async function () {
     [admin, user1, user2, user3] = await ethers.getSigners();
@@ -37,22 +39,22 @@ describe("Rewards", function () {
       pmon.address,
     ]);
 
-    requirementChecker = await ethers.deployContract("RequirementChecker");
-    requirementChecker.whitelistNftContract(polymonNfts.address);
+    requirementChecker = await ethers.deployContract("RequirementChecker", [admin.address]);
+    await requirementChecker.whitelistNftContract(polymonNfts.address);
 
     binder1 = await ethers.deployContract("Binder");
+    binderNft1 = await ethers.deployContract("BinderNft", ["Binder1", "Binder1", binder1.address]);
     await binder1.initialize(
       admin.address,
-      "Binder1",
-      "Binder1",
+      binderNft1.address,
       requirementChecker.address,
       [{ requirements: [] }, { requirements: [] }, { requirements: [] }]
     );
     binder2 = await ethers.deployContract("Binder");
+    binderNft2 = await ethers.deployContract("BinderNft", ["Binder1", "Binder1", binder2.address]);
     await binder2.initialize(
       admin.address,
-      "Binder2",
-      "Binder2",
+      binderNft2.address,
       requirementChecker.address,
       [{ requirements: [] }, { requirements: [] }, { requirements: [] }]
     );
@@ -66,13 +68,13 @@ describe("Rewards", function () {
 
   it("Rewards should be distributed by user shares and parent binder shares", async function () {
     // stake
-    await binder1.connect(user1).createBinderNft();
+    await binderNft1.connect(user1).createBinderNft();
     await stake(user1, polymonNfts, binder1, 0, [0]);
 
-    await binder1.connect(user2).createBinderNft();
+    await binderNft1.connect(user2).createBinderNft();
     await stake(user2, polymonNfts, binder1, 1, [0, 1, 2]);
 
-    await binder2.connect(user3).createBinderNft();
+    await binderNft2.connect(user3).createBinderNft();
     await stake(user3, polymonNfts, binder2, 0, [0]);
 
     // check rewards
@@ -105,7 +107,7 @@ describe("Rewards", function () {
 
   it("Rewards should be distributed correctly if new user stakes", async function () {
     // stake
-    await binder2.connect(user3).createBinderNft();
+    await binderNft2.connect(user3).createBinderNft();
     await stake(user3, polymonNfts, binder2, 0, [0]);
 
     // add rewards
@@ -119,7 +121,7 @@ describe("Rewards", function () {
     ]);
 
     // stake with new user
-    await binder2.connect(user1).createBinderNft();
+    await binderNft2.connect(user1).createBinderNft();
     await stake(user1, polymonNfts, binder2, 1, [0]);
 
     // check rewards
@@ -143,10 +145,10 @@ describe("Rewards", function () {
 
   it("Rewards should be distributed correctly if user reduce his stake", async function () {
     // stake
-    await binder2.connect(user3).createBinderNft();
+    await binderNft2.connect(user3).createBinderNft();
     await stake(user3, polymonNfts, binder2, 0, [0, 1]);
 
-    await binder2.connect(user1).createBinderNft();
+    await binderNft2.connect(user1).createBinderNft();
     await stake(user1, polymonNfts, binder2, 1, [0, 1]);
 
     // add rewards

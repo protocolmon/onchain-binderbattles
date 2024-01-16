@@ -13,36 +13,36 @@ describe("Stake", function () {
   beforeEach(async function () {
     [admin, user1, user2] = await ethers.getSigners();
     polymonNfts = await ethers.deployContract("MockERC721");
-    requirementChecker = await ethers.deployContract("RequirementChecker");
-    requirementChecker.whitelistNftContract(polymonNfts.address);
+    requirementChecker = await ethers.deployContract("RequirementChecker", [admin.address]);
+    await requirementChecker.whitelistNftContract(polymonNfts.address);
   });
 
   it("createBinderNft should create a new empty binder NFT", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       []
     );
 
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
     // TODO test that the binder is empty when the slot definition is implemented
   });
 
   it("revert when staking nfts from non-whitelisted contract", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [{ requirements: [] }]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     // stake a non-whitelisted NFT
     const nonWhitelistedNft = await ethers.deployContract("MockERC721");
@@ -52,15 +52,15 @@ describe("Stake", function () {
 
   it("revert when staking nfts in a non existing slot", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [{ requirements: [] }]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     // stake a non-whitelisted NFT
     await expect(stake(user1, polymonNfts, binder, 0, [1])).to.be.reverted;
@@ -68,10 +68,10 @@ describe("Stake", function () {
 
   it("revert when staking nft with invalid traits", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [
         {
@@ -79,8 +79,8 @@ describe("Stake", function () {
         },
       ]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     // stake a nft with invalid trait
     await expect(stake(user1, polymonNfts, binder, 0, [0], false, [[2]])).to.be
@@ -89,15 +89,15 @@ describe("Stake", function () {
 
   it("revert when staking nft without replace flag on non empty slot", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [{ requirements: [] }]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     // occupy the slot
     await stake(user1, polymonNfts, binder, 0, [0]);
@@ -108,15 +108,15 @@ describe("Stake", function () {
 
   it("replace nft", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [{ requirements: [] }]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     // occupy the slot
     await stake(user1, polymonNfts, binder, 0, [0]);
@@ -138,18 +138,18 @@ describe("Stake", function () {
 
   it("replace nft from different contract", async function () {
     const polymonNfts2 = await ethers.deployContract("MockERC721");
-    requirementChecker.whitelistNftContract(polymonNfts2.address);
+    await requirementChecker.whitelistNftContract(polymonNfts2.address);
 
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [{ requirements: [] }]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     // occupy the slot
     await stake(user1, polymonNfts, binder, 0, [0]);
@@ -171,10 +171,10 @@ describe("Stake", function () {
 
   it("stake with requirements", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [
         {
@@ -182,8 +182,8 @@ describe("Stake", function () {
         },
       ]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     // stake a nft with valid trait
     await stake(user1, polymonNfts, binder, 0, [0], false, [[3]]);
@@ -196,10 +196,10 @@ describe("Stake", function () {
 
   it("stake multiple nfts with requirements", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [
         {
@@ -219,8 +219,8 @@ describe("Stake", function () {
         },
       ]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     // stake multiple nfts with valid traits
     await stake(user1, polymonNfts, binder, 0, [0, 1, 2], false, [
@@ -239,18 +239,18 @@ describe("Stake", function () {
 
   it("revert when staking Nfts owned by others", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [{ requirements: [] }, { requirements: [] }]
     );
-    await binder.connect(user1).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user1.address);
+    await binderNft.connect(user1).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user1.address);
 
     await polymonNfts.connect(user2).setApprovalForAll(binder.address, true);
-    await polymonNfts.mint(user2.address, []);
+    await polymonNfts.mint(user2.address, [], 1000);
 
     // stake a nft owned by others
     await expect(
@@ -268,7 +268,7 @@ describe("Stake", function () {
     ).to.be.reverted;
 
     // stake nft
-    await binder.connect(user2).createBinderNft();
+    await binderNft.connect(user2).createBinderNft();
     await binder.connect(user2).stakeToBinderNft(
       1,
       [
@@ -311,7 +311,7 @@ describe("Stake", function () {
         true
       )
     ).to.be.reverted;
-    await binder.connect(user2).createBinderNft();
+    await binderNft.connect(user2).createBinderNft();
     await expect(
       binder.connect(user2).stakeToBinderNft(
         2,
@@ -329,15 +329,15 @@ describe("Stake", function () {
 
   it("revert when staking Nfts to binder owned by others", async function () {
     const binder = await ethers.deployContract("Binder");
+    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
     await binder.initialize(
       admin.address,
-      "Binder",
-      "Binder",
+      binderNft.address,
       requirementChecker.address,
       [{ requirements: [] }]
     );
-    await binder.connect(user2).createBinderNft();
-    expect(await binder.ownerOf(0)).to.equal(user2.address);
+    await binderNft.connect(user2).createBinderNft();
+    expect(await binderNft.ownerOf(0)).to.equal(user2.address);
 
     // stake a nft to a binder owned by others
     await expect(stake(user1, polymonNfts, binder, 0, [0])).to.be.reverted;

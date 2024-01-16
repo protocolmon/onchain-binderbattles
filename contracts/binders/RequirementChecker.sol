@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/ITraitProvider.sol";
 import "./interfaces/IRequirementChecker.sol";
 
-contract RequirementChecker is IRequirementChecker {
+contract RequirementChecker is IRequirementChecker, AccessControl {
+    bytes32 public constant GOVERNANCE_ROLE = keccak256("GOVERNANCE_ROLE");
+
     mapping(address => bool) public whitelistedNftContracts;
 
-    function whitelistNftContract(address nftContract) external {
-        // TODO access control
+    constructor(address defaultAdmin) {
+        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
+        _grantRole(GOVERNANCE_ROLE, defaultAdmin);
+    }
+
+    function whitelistNftContract(address nftContract) external onlyRole(GOVERNANCE_ROLE) {
         whitelistedNftContracts[nftContract] = true;
     }
 

@@ -3,11 +3,11 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IBinder} from "./interfaces/IBinder.sol";
 import {IParentBinder} from "./interfaces/IParentBinder.sol";
 import "./interfaces/IRequirementChecker.sol";
+import "./interfaces/IRarityProvider.sol";
 
 /**
  * @title Binder.sol
@@ -18,7 +18,6 @@ import "./interfaces/IRequirementChecker.sol";
 contract Binder is
     Initializable,
     AccessControlUpgradeable,
-    ERC721EnumerableUpgradeable,
     IBinder
 {
     /***************************
@@ -60,7 +59,6 @@ contract Binder is
      * EVENTS                  *
      ***************************/
 
-    event BinderNftCreated(uint256 indexed binderNftId, address indexed owner);
     event NftAdded(
         uint256 indexed binderNftId,
         uint256 indexed slotId,
@@ -79,14 +77,15 @@ contract Binder is
      ***************************/
 
     bytes32 public constant GOVERNANCE_ROLE = keccak256("GOVERNANCE_ROLE");
+    bytes32 public constant BINDER_NFT_ROLE = keccak256("BINDER_NFT_ROLE");
     uint256 public constant PRECISION = 1e12;
 
     /***************************
      * STORAGE                 *
      ***************************/
 
-    /// @dev id index for minting binderNfts
-    uint256 public nftIndex;
+    /// @dev BinderNft contract
+    IERC721 binderNft;
 
     /// @dev version => VersionData
     mapping(uint256 => VersionData) public versions;
@@ -116,16 +115,16 @@ contract Binder is
 
     function initialize(
         address defaultAdmin,
-        string memory name,
-        string memory symbol,
+        address _binderNft,
         IRequirementChecker _requirementChecker,
         SlotDefinition[] calldata _slotDefinitions
     ) public initializer {
-        __ERC721_init(name, symbol);
-
         __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(GOVERNANCE_ROLE, defaultAdmin);
+        _grantRole(BINDER_NFT_ROLE, _binderNft);
+
+        binderNft = IERC721(_binderNft);
 
         requirementChecker = _requirementChecker;
         for (uint256 i = 0; i < _slotDefinitions.length; ) {
@@ -159,14 +158,6 @@ contract Binder is
      * PUBLIC EXT. FUNCTIONS   *
      ***************************/
 
-    /// @notice Create a new empty binder nft
-    /// @return id of the new binder nft
-    function createBinderNft() external returns (uint256 id) {
-        id = nftIndex++;
-        _mint(msg.sender, id);
-        emit BinderNftCreated(id, msg.sender);
-    }
-
     /// @notice stake nfts to a binder nft
     /// @param nftId id of the binder nft
     /// @param nfts list of nfts to stake
@@ -176,7 +167,7 @@ contract Binder is
         NftInput[] calldata nfts,
         bool replace
     ) external {
-        address owner = ownerOf(nftId);
+        address owner = binderNft.ownerOf(nftId);
         if (owner != msg.sender) {
             revert NotTheOwner(owner, msg.sender, nftId);
         }
@@ -207,9 +198,8 @@ contract Binder is
                         msg.sender,
                         slot.tokenId
                     );
-                    // TODO use rarity as shares
-                    removedShares += 1000;
-                    // shares += getRarity(nfts[i]);
+                    removedShares += IRarityProvider(address(slot.tokenContract))
+                        .rarity(slot.tokenId);
 
                     delete binderNfts[nftId].slots[nft.slotId];
 
@@ -236,9 +226,8 @@ contract Binder is
                 address(this),
                 nft.tokenId
             );
-            // TODO use rarity as shares
-            shares += 1000;
-            // shares += getRarity(nft);
+            shares += IRarityProvider(address(nft.tokenContract))
+                .rarity(nft.tokenId);
 
             binderNfts[nftId].slots[nft.slotId] = Nft({
                 tokenContract: nft.tokenContract,
@@ -281,7 +270,7 @@ contract Binder is
         uint256 nftId,
         NftInput[] calldata nfts
     ) external {
-        address owner = ownerOf(nftId);
+        address owner = binderNft.ownerOf(nftId);
         if (owner != msg.sender) {
             revert NotTheOwner(owner, msg.sender, nftId);
         }
@@ -305,9 +294,8 @@ contract Binder is
                 msg.sender,
                 nft.tokenId
             );
-            // TODO use rarity as shares
-            shares += 1000;
-            // shares += getRarity(nfts[i]);
+            shares += IRarityProvider(address(nft.tokenContract))
+                .rarity(nft.tokenId);
 
             delete binderNfts[nftId].slots[nft.slotId];
 
@@ -374,37 +362,12 @@ contract Binder is
         }
     }
 
-    /// @dev See {IERC721-transferFrom}
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) public override(ERC721Upgradeable, IERC721) {
-        _prepareBinderNftTransfer(from, to, tokenId);
-        super.transferFrom(from, to, tokenId);
-    }
-
-    /// @dev See {IERC721-safeTransferFrom}.
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes memory data
-    ) public override(ERC721Upgradeable, IERC721) {
-        _prepareBinderNftTransfer(from, to, tokenId);
-        super.safeTransferFrom(from, to, tokenId, data);
-    }
-
-    /***************************
-     * INTERNAL FUNCTIONS      *
-     ***************************/
-
     /// @dev requires owner check to be done by caller
-    function _prepareBinderNftTransfer(
+    function prepareBinderNftTransfer(
         address from,
         address to,
         uint256 tokenId
-    ) internal {
+    ) external onlyRole(BINDER_NFT_ROLE) {
         uint256 shares = 0;
 
         if (shares > 0) {
@@ -418,6 +381,10 @@ contract Binder is
             _updateRewardDebt(to);
         }
     }
+
+    /***************************
+     * INTERNAL FUNCTIONS      *
+     ***************************/
 
     /// @dev requires updateRewards() to be called before this function
     function _updateRewardDebt(address user) internal {
@@ -509,16 +476,5 @@ contract Binder is
 
     function getBinderNftShares(uint256 nftId) external view returns (uint256) {
         return 0; // TODO binderNfts[nftId].shares;
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    )
-        public
-        view
-        override(ERC721EnumerableUpgradeable, AccessControlUpgradeable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
     }
 }

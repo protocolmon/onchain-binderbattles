@@ -9,7 +9,8 @@ export async function stake(
   binderNftId: number,
   slots: number[],
   replace = false,
-  traits: number[][] | undefined = undefined
+  traits: number[][] | undefined = undefined,
+  rarity = 1000
 ) {
   await nftContract.connect(user).setApprovalForAll(binder.address, true);
 
@@ -18,7 +19,7 @@ export async function stake(
     const slotId = slots[i];
     const tokenId = await nftContract.tokenIndex();
     const _traits = traits ? traits[i] : [];
-    await nftContract.mint(user.address, _traits);
+    await nftContract.mint(user.address, _traits, rarity);
     nfts.push({
       tokenContract: nftContract.address,
       tokenId,
