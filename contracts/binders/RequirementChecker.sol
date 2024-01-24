@@ -15,7 +15,9 @@ contract RequirementChecker is IRequirementChecker, AccessControl {
         _grantRole(GOVERNANCE_ROLE, defaultAdmin);
     }
 
-    function whitelistNftContract(address nftContract) external onlyRole(GOVERNANCE_ROLE) {
+    function whitelistNftContract(
+        address nftContract
+    ) external onlyRole(GOVERNANCE_ROLE) {
         whitelistedNftContracts[nftContract] = true;
     }
 

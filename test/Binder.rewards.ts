@@ -39,11 +39,17 @@ describe("Rewards", function () {
       pmon.address,
     ]);
 
-    requirementChecker = await ethers.deployContract("RequirementChecker", [admin.address]);
+    requirementChecker = await ethers.deployContract("RequirementChecker", [
+      admin.address,
+    ]);
     await requirementChecker.whitelistNftContract(polymonNfts.address);
 
     binder1 = await ethers.deployContract("Binder");
-    binderNft1 = await ethers.deployContract("BinderNft", ["Binder1", "Binder1", binder1.address]);
+    binderNft1 = await ethers.deployContract("BinderNft", [
+      "Binder1",
+      "Binder1",
+      binder1.address,
+    ]);
     await binder1.initialize(
       admin.address,
       binderNft1.address,
@@ -51,7 +57,11 @@ describe("Rewards", function () {
       [{ requirements: [] }, { requirements: [] }, { requirements: [] }]
     );
     binder2 = await ethers.deployContract("Binder");
-    binderNft2 = await ethers.deployContract("BinderNft", ["Binder1", "Binder1", binder2.address]);
+    binderNft2 = await ethers.deployContract("BinderNft", [
+      "Binder1",
+      "Binder1",
+      binder2.address,
+    ]);
     await binder2.initialize(
       admin.address,
       binderNft2.address,

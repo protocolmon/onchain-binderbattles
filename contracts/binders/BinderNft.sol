@@ -37,7 +37,11 @@ contract BinderNft is ERC721Enumerable {
      * Constructor             *
      ***************************/
 
-    constructor(string memory name, string memory symbol, address _parent) ERC721(name, symbol) {
+    constructor(
+        string memory name,
+        string memory symbol,
+        address _parent
+    ) ERC721(name, symbol) {
         parent = _parent;
     }
 
@@ -62,7 +66,7 @@ contract BinderNft is ERC721Enumerable {
         address from,
         address to,
         uint256 tokenId
-    ) public override (ERC721, IERC721) {
+    ) public override(ERC721, IERC721) {
         IBinderNftParent(parent).prepareBinderNftTransfer(from, to, tokenId);
         super.transferFrom(from, to, tokenId);
     }
@@ -73,7 +77,7 @@ contract BinderNft is ERC721Enumerable {
         address to,
         uint256 tokenId,
         bytes memory data
-    ) public override (ERC721, IERC721) {
+    ) public override(ERC721, IERC721) {
         IBinderNftParent(parent).prepareBinderNftTransfer(from, to, tokenId);
         super.safeTransferFrom(from, to, tokenId, data);
     }

@@ -15,11 +15,7 @@ import "./interfaces/IRarityProvider.sol";
  * Every mention of "share" in this contract does NOT relate to company or revenue shares.
  * It is simply a fraction of a whole.
  */
-contract Binder is
-    Initializable,
-    AccessControlUpgradeable,
-    IBinder
-{
+contract Binder is Initializable, AccessControlUpgradeable, IBinder {
     /***************************
      * STRUCTS                 *
      ***************************/
@@ -198,8 +194,9 @@ contract Binder is
                         msg.sender,
                         slot.tokenId
                     );
-                    removedShares += IRarityProvider(address(slot.tokenContract))
-                        .rarity(slot.tokenId);
+                    removedShares += IRarityProvider(
+                        address(slot.tokenContract)
+                    ).rarity(slot.tokenId);
 
                     delete binderNfts[nftId].slots[nft.slotId];
 
@@ -226,8 +223,9 @@ contract Binder is
                 address(this),
                 nft.tokenId
             );
-            shares += IRarityProvider(address(nft.tokenContract))
-                .rarity(nft.tokenId);
+            shares += IRarityProvider(address(nft.tokenContract)).rarity(
+                nft.tokenId
+            );
 
             binderNfts[nftId].slots[nft.slotId] = Nft({
                 tokenContract: nft.tokenContract,
@@ -294,8 +292,9 @@ contract Binder is
                 msg.sender,
                 nft.tokenId
             );
-            shares += IRarityProvider(address(nft.tokenContract))
-                .rarity(nft.tokenId);
+            shares += IRarityProvider(address(nft.tokenContract)).rarity(
+                nft.tokenId
+            );
 
             delete binderNfts[nftId].slots[nft.slotId];
 

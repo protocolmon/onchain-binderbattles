@@ -11,7 +11,11 @@ contract MockERC721 is ERC721 {
 
     constructor() ERC721("Test", "Test") {}
 
-    function mint(address to, uint256[] calldata _traits, uint256 rarity) external {
+    function mint(
+        address to,
+        uint256[] calldata _traits,
+        uint256 rarity
+    ) external {
         uint256 index = tokenIndex++;
         _mint(to, index);
         for (uint256 i = 0; i < _traits.length; i++) {

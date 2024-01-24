@@ -13,13 +13,19 @@ describe("Stake", function () {
   beforeEach(async function () {
     [admin, user1, user2] = await ethers.getSigners();
     polymonNfts = await ethers.deployContract("MockERC721");
-    requirementChecker = await ethers.deployContract("RequirementChecker", [admin.address]);
+    requirementChecker = await ethers.deployContract("RequirementChecker", [
+      admin.address,
+    ]);
     await requirementChecker.whitelistNftContract(polymonNfts.address);
   });
 
   it("createBinderNft should create a new empty binder NFT", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -34,7 +40,11 @@ describe("Stake", function () {
 
   it("revert when staking nfts from non-whitelisted contract", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -52,7 +62,11 @@ describe("Stake", function () {
 
   it("revert when staking nfts in a non existing slot", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -68,7 +82,11 @@ describe("Stake", function () {
 
   it("revert when staking nft with invalid traits", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -89,7 +107,11 @@ describe("Stake", function () {
 
   it("revert when staking nft without replace flag on non empty slot", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -108,7 +130,11 @@ describe("Stake", function () {
 
   it("replace nft", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -141,7 +167,11 @@ describe("Stake", function () {
     await requirementChecker.whitelistNftContract(polymonNfts2.address);
 
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -171,7 +201,11 @@ describe("Stake", function () {
 
   it("stake with requirements", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -196,7 +230,11 @@ describe("Stake", function () {
 
   it("stake multiple nfts with requirements", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -239,7 +277,11 @@ describe("Stake", function () {
 
   it("revert when staking Nfts owned by others", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
@@ -329,7 +371,11 @@ describe("Stake", function () {
 
   it("revert when staking Nfts to binder owned by others", async function () {
     const binder = await ethers.deployContract("Binder");
-    const binderNft = await ethers.deployContract("BinderNft", ["Binder", "Binder", binder.address]);
+    const binderNft = await ethers.deployContract("BinderNft", [
+      "Binder",
+      "Binder",
+      binder.address,
+    ]);
     await binder.initialize(
       admin.address,
       binderNft.address,
