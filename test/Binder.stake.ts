@@ -30,7 +30,8 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      []
+      [],
+      0
     );
 
     await binderNft.connect(user1).createBinderNft();
@@ -49,7 +50,8 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [{ requirements: [] }]
+      [{ requirements: [] }],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -71,7 +73,8 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [{ requirements: [] }]
+      [{ requirements: [] }],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -95,7 +98,8 @@ describe("Stake", function () {
         {
           requirements: [{ traitId: 0, acceptedTraitValues: [3] }],
         },
-      ]
+      ],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -116,7 +120,8 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [{ requirements: [] }]
+      [{ requirements: [] }],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -139,7 +144,8 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [{ requirements: [] }]
+      [{ requirements: [] }],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -156,6 +162,8 @@ describe("Stake", function () {
     await stake(user1, polymonNfts, binder, 0, [0], true);
 
     // check owner
+    expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
+    await binder.connect(user1).claimUnlockedNfts(0, [0]);
     expect(await polymonNfts.ownerOf(0)).to.equal(user1.address);
     expect(await polymonNfts.ownerOf(1)).to.equal(binder.address);
 
@@ -176,7 +184,8 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [{ requirements: [] }]
+      [{ requirements: [] }],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -193,6 +202,8 @@ describe("Stake", function () {
     await stake(user1, polymonNfts2, binder, 0, [0], true);
 
     // check owner
+    expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
+    await binder.connect(user1).claimUnlockedNfts(0, [0]);
     expect(await polymonNfts.ownerOf(0)).to.equal(user1.address);
     expect(await polymonNfts2.ownerOf(0)).to.equal(binder.address);
 
@@ -214,7 +225,8 @@ describe("Stake", function () {
         {
           requirements: [{ traitId: 0, acceptedTraitValues: [3] }],
         },
-      ]
+      ],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -255,7 +267,8 @@ describe("Stake", function () {
             { traitId: 1, acceptedTraitValues: [1] },
           ],
         },
-      ]
+      ],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -286,7 +299,8 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [{ requirements: [] }, { requirements: [] }]
+      [{ requirements: [] }, { requirements: [] }],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
@@ -380,7 +394,8 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [{ requirements: [] }]
+      [{ requirements: [] }],
+      0
     );
     await binderNft.connect(user2).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user2.address);

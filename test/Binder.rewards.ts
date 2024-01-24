@@ -54,7 +54,8 @@ describe("Rewards", function () {
       admin.address,
       binderNft1.address,
       requirementChecker.address,
-      [{ requirements: [] }, { requirements: [] }, { requirements: [] }]
+      [{ requirements: [] }, { requirements: [] }, { requirements: [] }],
+      0
     );
     binder2 = await ethers.deployContract("Binder");
     binderNft2 = await ethers.deployContract("BinderNft", [
@@ -66,7 +67,8 @@ describe("Rewards", function () {
       admin.address,
       binderNft2.address,
       requirementChecker.address,
-      [{ requirements: [] }, { requirements: [] }, { requirements: [] }]
+      [{ requirements: [] }, { requirements: [] }, { requirements: [] }],
+      0
     );
 
     await topLevelBinder.addBinder(1, binder1.address, 2000);

@@ -18,7 +18,8 @@ describe("Binder", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [{ requirements: [] }]
+      [{ requirements: [] }],
+      0
     );
     await binderNft.connect(user1).createBinderNft();
 
