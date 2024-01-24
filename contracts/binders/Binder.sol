@@ -104,7 +104,7 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
     uint256[] public versionIds;
 
     /// @dev binderNftId => BinderNft data
-    mapping(uint256 => BinderNft) binderNfts; // TODO add view
+    mapping(uint256 => BinderNft) binderNfts;
 
     /// @dev sum of all shares
     uint256 public totalUserShares;

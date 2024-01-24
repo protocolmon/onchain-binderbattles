@@ -67,7 +67,7 @@ describe("Lock", function () {
     expect(binderDataView.lockedNfts.length).to.equal(0);
 
     // replace
-    await stake(user1, polymonNfts, binder, 0, [0], true);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
     
     // check lock
     binderDataView = await binder.getBinderNft(0);
@@ -76,7 +76,7 @@ describe("Lock", function () {
     expect(binderDataView.lockedNfts[0].nft.tokenId).to.equal(0);
 
     // replace
-    await stake(user1, polymonNfts, binder, 0, [0], true);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
 
     // check lock
     binderDataView = await binder.getBinderNft(0);
@@ -165,10 +165,10 @@ describe("Lock", function () {
 
   it("should be able to claim multiple nfts at once", async function () {
     // lock multiple nfts
-    await stake(user1, polymonNfts, binder, 0, [0], true);
-    await stake(user1, polymonNfts, binder, 0, [0], true);
-    await stake(user1, polymonNfts, binder, 0, [0], true);
-    await stake(user1, polymonNfts, binder, 0, [0], true);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
 
     // check data
     let binderDataView = await binder.getBinderNft(0);
@@ -199,10 +199,10 @@ describe("Lock", function () {
 
   it("should revert if the indexes are not sorted in decending order", async function () {
     // lock multiple nfts
-    await stake(user1, polymonNfts, binder, 0, [0], true);
-    await stake(user1, polymonNfts, binder, 0, [0], true);
-    await stake(user1, polymonNfts, binder, 0, [0], true);
-    await stake(user1, polymonNfts, binder, 0, [0], true);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [1000], [1000]);
 
     // increase time
     await ethers.provider.send("evm_increaseTime", [LOCK_TIME + 5]);

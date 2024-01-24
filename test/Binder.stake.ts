@@ -1,7 +1,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { MockERC721, RequirementChecker } from "../typechain-types";
-import { stake } from "./utils";
+import { ZERO_ADDRESS, stake } from "./utils";
 
 describe("Stake", function () {
   let admin: SignerWithAddress,
@@ -30,13 +30,29 @@ describe("Stake", function () {
       admin.address,
       binderNft.address,
       requirementChecker.address,
-      [],
+      [
+        {
+          requirements: [],
+        },
+        {
+          requirements: [],
+        },
+      ],
       0
     );
 
     await binderNft.connect(user1).createBinderNft();
+    await binderNft.connect(user1).createBinderNft();
     expect(await binderNft.ownerOf(0)).to.equal(user1.address);
-    // TODO test that the binder is empty when the slot definition is implemented
+
+    // check binder
+    const binderDataView = await binder.getBinderNft(1);
+    expect(binderDataView.id).to.equal(1);
+    expect(binderDataView.shares).to.equal(0);
+    expect(binderDataView.lockedNfts.length).to.equal(0);
+    expect(binderDataView.slots.length).to.equal(2);
+    expect(binderDataView.slots[0].tokenContract).to.equal(ZERO_ADDRESS);
+    expect(binderDataView.slots[1].tokenContract).to.equal(ZERO_ADDRESS);
   });
 
   it("revert when staking nfts from non-whitelisted contract", async function () {
@@ -156,18 +172,14 @@ describe("Stake", function () {
     // check owner
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
 
-    // TODO check share
-
     // stake on occupied slot
-    await stake(user1, polymonNfts, binder, 0, [0], true);
+    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [500], [1000]);
 
     // check owner
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
     await binder.connect(user1).claimUnlockedNfts(0, [0]);
     expect(await polymonNfts.ownerOf(0)).to.equal(user1.address);
     expect(await polymonNfts.ownerOf(1)).to.equal(binder.address);
-
-    // TODO check share
   });
 
   it("replace nft from different contract", async function () {
@@ -196,18 +208,14 @@ describe("Stake", function () {
     // check owner
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
 
-    // TODO check share
-
     // stake on occupied slot
-    await stake(user1, polymonNfts2, binder, 0, [0], true);
+    await stake(user1, polymonNfts2, binder, 0, [0], true, undefined, [500], [1000]);
 
     // check owner
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
     await binder.connect(user1).claimUnlockedNfts(0, [0]);
     expect(await polymonNfts.ownerOf(0)).to.equal(user1.address);
     expect(await polymonNfts2.ownerOf(0)).to.equal(binder.address);
-
-    // TODO check share
   });
 
   it("stake with requirements", async function () {
@@ -236,8 +244,6 @@ describe("Stake", function () {
 
     // check owner
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
-
-    // TODO check share
   });
 
   it("stake multiple nfts with requirements", async function () {
@@ -284,8 +290,6 @@ describe("Stake", function () {
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
     expect(await polymonNfts.ownerOf(1)).to.equal(binder.address);
     expect(await polymonNfts.ownerOf(2)).to.equal(binder.address);
-
-    // TODO check share
   });
 
   it("revert when staking Nfts owned by others", async function () {
