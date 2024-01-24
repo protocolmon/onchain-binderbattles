@@ -64,7 +64,11 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
     error InvalidSlot(uint256 slotId);
     error NotTheOwner(address owner, address caller, uint256 tokenId);
     error IndexesNotSortedDescending();
-    error NftStillLocked(uint256 lockedNftIndex, uint256 unlockTime, uint256 currentTime);
+    error NftStillLocked(
+        uint256 lockedNftIndex,
+        uint256 unlockTime,
+        uint256 currentTime
+    );
 
     /***************************
      * EVENTS                  *
@@ -173,19 +177,17 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
 
     /// @notice Set the requirement checker contract
     /// @param _requirementChecker requirement checker contract
-    function setRequirementChecker(IRequirementChecker _requirementChecker)
-        external
-        onlyRole(GOVERNANCE_ROLE)
-    {
+    function setRequirementChecker(
+        IRequirementChecker _requirementChecker
+    ) external onlyRole(GOVERNANCE_ROLE) {
         requirementChecker = _requirementChecker;
     }
 
     /// @notice Set the unstake lock period
     /// @param _unstakeLockPeriod unstake lock period in seconds
-    function setUnstakeLockPeriod(uint256 _unstakeLockPeriod)
-        external
-        onlyRole(GOVERNANCE_ROLE)
-    {
+    function setUnstakeLockPeriod(
+        uint256 _unstakeLockPeriod
+    ) external onlyRole(GOVERNANCE_ROLE) {
         unstakeLockPeriod = _unstakeLockPeriod;
     }
 
@@ -232,10 +234,7 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
                 if (replace) {
                     // lock removed nft (can be removed after lock period with claimUnlockedNfts)
                     binderNfts[binderNftId].lockedNfts.push(
-                        LockedNft({
-                            nft: slot,
-                            unstakeTime: block.timestamp
-                        })
+                        LockedNft({nft: slot, unstakeTime: block.timestamp})
                     );
                     removedShares += IRarityProvider(
                         address(slot.tokenContract)
@@ -304,10 +303,10 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
         _updateRewardDebt(msg.sender);
     }
 
-    /// @notice unstake nfts from a binder nft. 
-    /// The nfts will be locked for a period of time to prevent running a 
-    /// unstake transaction before a sell transaction is executed to 
-    /// remove nfts from the binder the buyer paid for. The Nft can be 
+    /// @notice unstake nfts from a binder nft.
+    /// The nfts will be locked for a period of time to prevent running a
+    /// unstake transaction before a sell transaction is executed to
+    /// remove nfts from the binder the buyer paid for. The Nft can be
     /// claimed after the lock period with claimUnlockedNfts.
     /// @param binderNftId id of the binder nft
     /// @param nfts list of nfts to unstake
@@ -336,10 +335,7 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
 
             // lock removed nft (can be removed after lock period with claimUnlockedNfts)
             binderNfts[binderNftId].lockedNfts.push(
-                LockedNft({
-                    nft: slot,
-                    unstakeTime: block.timestamp
-                })
+                LockedNft({nft: slot, unstakeTime: block.timestamp})
             );
             shares += IRarityProvider(address(nft.tokenContract)).rarity(
                 nft.tokenId
@@ -369,16 +365,23 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
         _updateRewardDebt(msg.sender);
     }
 
-    /// @notice Unstake removed nfts from a binder nft but lock them for a period 
-    /// of time to prevent running a unstake transaction before a sell transaction 
+    /// @notice Unstake removed nfts from a binder nft but lock them for a period
+    /// of time to prevent running a unstake transaction before a sell transaction
     /// is executed to remove nfts from the binder the buyer paid for.
     /// After the lock period is over, the nfts can be claimed by the owner of the binder nft.
     /// @param binderNftId id of the binder nft
-    /// @param nftIndexes list of indexes of nfts to claim. 
+    /// @param nftIndexes list of indexes of nfts to claim.
     /// The indexes must be sorted in descending order. Or the transaction will revert.
-    function claimUnlockedNfts(uint256 binderNftId, uint[] calldata nftIndexes) external {
+    function claimUnlockedNfts(
+        uint256 binderNftId,
+        uint[] calldata nftIndexes
+    ) external {
         if (msg.sender != binderNft.ownerOf(binderNftId)) {
-            revert NotTheOwner(binderNft.ownerOf(binderNftId), msg.sender, binderNftId);
+            revert NotTheOwner(
+                binderNft.ownerOf(binderNftId),
+                msg.sender,
+                binderNftId
+            );
         }
 
         LockedNft[] storage lockedNfts = binderNfts[binderNftId].lockedNfts;
@@ -389,7 +392,9 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
             LockedNft memory lockedNft = lockedNfts[nftIndexes[i]];
             if (lockedNft.unstakeTime + unstakeLockPeriod <= block.timestamp) {
                 if (nftIndexes[i] < lockedNfts.length - 1) {
-                    lockedNfts[nftIndexes[i]] = lockedNfts[lockedNfts.length - 1];
+                    lockedNfts[nftIndexes[i]] = lockedNfts[
+                        lockedNfts.length - 1
+                    ];
                 }
                 lockedNfts.pop();
                 lockedNft.nft.tokenContract.transferFrom(
@@ -398,7 +403,11 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
                     lockedNft.nft.tokenId
                 );
             } else {
-                revert NftStillLocked(nftIndexes[i], lockedNft.unstakeTime + unstakeLockPeriod, block.timestamp);
+                revert NftStillLocked(
+                    nftIndexes[i],
+                    lockedNft.unstakeTime + unstakeLockPeriod,
+                    block.timestamp
+                );
             }
             unchecked {
                 i++;
@@ -562,7 +571,9 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
     /// @notice Get information about a binder nft
     /// @param binderNftId id of the binder nft
     /// @return result BinderNftView struct with the binder nft information
-    function getBinderNft(uint256 binderNftId) external view returns (BinderNftView memory result) {
+    function getBinderNft(
+        uint256 binderNftId
+    ) external view returns (BinderNftView memory result) {
         result.id = binderNftId;
         result.shares = userShares[binderNft.ownerOf(binderNftId)];
         result.slots = new Nft[](slotDefinitions.length);

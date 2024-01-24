@@ -42,7 +42,11 @@ export async function stake(
   const postBinderDataView = await binder.getBinderNft(binderNftId);
   expect(postBinderDataView.id).to.equal(binderNftId);
   expect(postBinderDataView.id).to.equal(prevBinderDataView.id);
-  expect(postBinderDataView.shares).to.equal(Number(prevBinderDataView.shares) + rarities.reduce((acc, curr) => acc + curr, 0) - removedRarities.reduce((acc, curr) => acc + curr, 0));
+  expect(postBinderDataView.shares).to.equal(
+    Number(prevBinderDataView.shares) +
+      rarities.reduce((acc, curr) => acc + curr, 0) -
+      removedRarities.reduce((acc, curr) => acc + curr, 0)
+  );
   for (const nft of nfts) {
     const slot = postBinderDataView.slots[nft.slotId];
     expect(slot.tokenContract).to.equal(nft.tokenContract);

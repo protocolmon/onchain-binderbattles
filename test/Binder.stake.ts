@@ -173,7 +173,17 @@ describe("Stake", function () {
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
 
     // stake on occupied slot
-    await stake(user1, polymonNfts, binder, 0, [0], true, undefined, [500], [1000]);
+    await stake(
+      user1,
+      polymonNfts,
+      binder,
+      0,
+      [0],
+      true,
+      undefined,
+      [500],
+      [1000]
+    );
 
     // check owner
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
@@ -209,7 +219,17 @@ describe("Stake", function () {
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
 
     // stake on occupied slot
-    await stake(user1, polymonNfts2, binder, 0, [0], true, undefined, [500], [1000]);
+    await stake(
+      user1,
+      polymonNfts2,
+      binder,
+      0,
+      [0],
+      true,
+      undefined,
+      [500],
+      [1000]
+    );
 
     // check owner
     expect(await polymonNfts.ownerOf(0)).to.equal(binder.address);
