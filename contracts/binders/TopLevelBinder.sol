@@ -43,6 +43,7 @@ contract TopLevelBinder is
     error VersionNotActivated();
     error InvalidTotalShares(uint256 expected, uint256 actual);
     error PmonStoreNotSet();
+    error PmonStoreAlreadyUsed();
 
     /***************************
      * EVENTS                  *
@@ -85,6 +86,8 @@ contract TopLevelBinder is
     mapping(uint256 => uint256) public binderCount;
     /// @dev version => Reward data
     mapping(uint256 => Rewards) public rewards;
+    /// @dev mapping to ensure pmon stores are not used twice
+    mapping(address => bool) pmonStoreUsed;
 
     /***************************
      * INITIALIZER             *
@@ -131,7 +134,10 @@ contract TopLevelBinder is
         if (address(pmonStore) == address(0)) {
             revert PmonStoreNotSet();
         }
-        // TODO check if pmon store is already in use
+        if (pmonStoreUsed[address(pmonStore)]) {
+            revert PmonStoreAlreadyUsed();
+        }
+        pmonStoreUsed[address(pmonStore)] = true;
 
         // ensure total binder shares for version are = BINDER_SHARE_DIVIDER
         uint256 totalShares;
