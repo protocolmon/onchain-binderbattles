@@ -9,12 +9,12 @@ import {IBinder} from "./interfaces/IBinder.sol";
 import {IParentBinder} from "./interfaces/IParentBinder.sol";
 
 /**
- * @title TopLevelBinder.sol
- * @dev TopLevelBinder.sol contract
+ * @title ParentBinder.sol
+ * @dev ParentBinder.sol contract
  * Every mention of "share" in this contract does NOT relate to company or revenue shares.
  * It is simply a fraction of a whole.
  */
-contract TopLevelBinder is
+contract ParentBinder is
     Initializable,
     AccessControlUpgradeable,
     IParentBinder
@@ -34,6 +34,11 @@ contract TopLevelBinder is
         uint256 accPmonPerShare;
     }
 
+    struct VersionData {
+        uint256 id;
+        IParentBinder parentBinder;
+    }
+
     /***************************
      * ERRORS                  *
      ***************************/
@@ -42,8 +47,6 @@ contract TopLevelBinder is
     error AlreadyActivated();
     error VersionNotActivated();
     error InvalidTotalShares(uint256 expected, uint256 actual);
-    error PmonStoreNotSet();
-    error PmonStoreAlreadyUsed();
 
     /***************************
      * EVENTS                  *
@@ -56,11 +59,10 @@ contract TopLevelBinder is
         uint256 share
     );
     event VersionActivated(uint256 indexed version, uint256 indexed timestamp);
-    event RewardClaimed(
+    event VersionAdded(
         uint256 indexed version,
         uint256 indexed id,
-        address indexed user,
-        uint256 reward
+        IParentBinder indexed parentBinder
     );
 
     /***************************
@@ -74,30 +76,23 @@ contract TopLevelBinder is
      * STORAGE                 *
      ***************************/
 
-    /// @dev Version of the share distribution
-    uint256 public currentVersion;
-    /// @dev PMON Token
-    IERC20 public pmon;
+    /// @dev version => VersionData
+    mapping(uint256 => VersionData) public versions;
     /// @dev version => binder ID => Binder
     mapping(uint256 => mapping(uint256 => Binder)) public binders;
     /// @dev version => timestamp
     mapping(uint256 => uint256) public versionActivatedAt;
     /// @dev version => binder count (used for binder ID)
     mapping(uint256 => uint256) public binderCount;
-    /// @dev version => Reward data
-    mapping(uint256 => Rewards) public rewards;
-    /// @dev mapping to ensure pmon stores are not used twice
-    mapping(address => bool) pmonStoreUsed;
 
     /***************************
      * INITIALIZER             *
      ***************************/
 
-    function initialize(address defaultAdmin, IERC20 _pmon) public initializer {
+    function initialize(address defaultAdmin) public initializer {
         __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(GOVERNANCE_ROLE, defaultAdmin);
-        pmon = _pmon;
     }
 
     /***************************
@@ -117,31 +112,39 @@ contract TopLevelBinder is
         if (versionActivatedAt[version] != 0) {
             revert AlreadyActivated();
         }
-
         uint256 id = binderCount[version]++;
         binders[version][id] = Binder(binder, share);
         emit BinderAdded(version, id, address(binder), share);
     }
 
-    /// @notice Activate a version
+    /// @notice Add a new version
     /// Can only be called by the governance role
-    /// @param version version to activate
-    /// @param pmonStore PmonStore contract that holds the PMON rewards
-    function activateVersion(
+    /// @param version version number
+    /// @param id id of the binder for the specified version known by the parent binder
+    /// @param parentBinder parent binder contract
+    function addVersion(
         uint256 version,
-        PmonStore pmonStore
+        uint256 id,
+        IParentBinder parentBinder
     ) external onlyRole(GOVERNANCE_ROLE) {
         if (versionActivatedAt[version] != 0) {
             revert AlreadyActivated();
         }
-        if (address(pmonStore) == address(0)) {
-            revert PmonStoreNotSet();
-        }
-        if (pmonStoreUsed[address(pmonStore)]) {
-            revert PmonStoreAlreadyUsed();
-        }
-        pmonStoreUsed[address(pmonStore)] = true;
+        versions[version].id = id;
+        versions[version].parentBinder = parentBinder;
 
+        emit VersionAdded(version, id, parentBinder);
+    }
+
+    /// @notice Activate a version
+    /// Can only be called by the governance role
+    /// @param version version to activate
+    function activateVersion(
+        uint256 version
+    ) external onlyRole(GOVERNANCE_ROLE) {
+        if (versionActivatedAt[version] != 0) {
+            revert AlreadyActivated();
+        }
         // ensure total binder shares for version are = BINDER_SHARE_DIVIDER
         uint256 totalShares;
         for (uint256 i = 0; i < binderCount[version]; i++) {
@@ -151,31 +154,12 @@ contract TopLevelBinder is
             revert InvalidTotalShares(BINDER_SHARE_DIVIDER, totalShares);
         }
         versionActivatedAt[version] = block.timestamp;
-        rewards[version].pmonStore = pmonStore;
         emit VersionActivated(version, block.timestamp);
     }
 
     /***************************
      * PUBLIC EXT. FUNCTIONS   *
      ***************************/
-
-    /// @notice Updates the accumulated PMON per share for the specified version and
-    /// save the updated values
-    /// @param version version for the pool to update
-    function updateRewards(uint256 version) public {
-        if (versionActivatedAt[version] == 0) {
-            revert VersionNotActivated();
-        }
-
-        Rewards memory rewardData = rewards[version];
-        uint256 balance = pmon.balanceOf(address(rewardData.pmonStore));
-        if (balance > rewardData.lastPmonBalance) {
-            rewards[version].accPmonPerShare +=
-                (balance - rewardData.lastPmonBalance) /
-                BINDER_SHARE_DIVIDER;
-            rewards[version].lastPmonBalance = balance;
-        }
-    }
 
     /// @inheritdoc IParentBinder
     function claimReward(
@@ -191,12 +175,13 @@ contract TopLevelBinder is
             );
         }
 
-        if (amount > 0) {
-            rewards[version].pmonStore.transferPmon(user, amount);
-            rewards[version].lastPmonBalance -= amount;
-        }
-
-        emit RewardClaimed(version, id, user, amount);
+        VersionData memory versionData = versions[version];
+        versionData.parentBinder.claimReward(
+            version,
+            versionData.id,
+            user,
+            amount
+        );
     }
 
     /// @inheritdoc IParentBinder
@@ -204,8 +189,17 @@ contract TopLevelBinder is
         uint256 version,
         uint256 id
     ) external returns (uint256) {
-        updateRewards(version);
-        return rewards[version].accPmonPerShare * binders[version][id].share;
+        if (versionActivatedAt[version] == 0) {
+            revert VersionNotActivated();
+        }
+
+        VersionData memory versionData = versions[version];
+        uint accPmon = versionData.parentBinder.getAndUpdateAccPmon(
+            version,
+            versionData.id
+        );
+        uint256 shares = binders[version][id].share;
+        return (accPmon * shares) / BINDER_SHARE_DIVIDER;
     }
 
     /***************************
@@ -221,14 +215,12 @@ contract TopLevelBinder is
             revert VersionNotActivated();
         }
 
-        // calculate new accPmonPerShare
-        Rewards memory rewardData = rewards[version];
-        uint256 balance = pmon.balanceOf(address(rewardData.pmonStore));
-        uint256 newAccPmonPerShare = rewardData.accPmonPerShare +
-            (balance - rewardData.lastPmonBalance) /
-            BINDER_SHARE_DIVIDER;
-
-        // calculate the accumulated PMON amount for the binder
-        return newAccPmonPerShare * binders[version][id].share;
+        VersionData memory versionData = versions[version];
+        uint256 accPmon = versionData.parentBinder.getAccPmon(
+            version,
+            versionData.id
+        );
+        uint256 shares = binders[version][id].share;
+        return (accPmon * shares) / BINDER_SHARE_DIVIDER;
     }
 }

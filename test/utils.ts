@@ -1,6 +1,6 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { Binder, MockERC721 } from "../typechain-types";
+import { Binder, MockERC721, RequirementChecker } from "../typechain-types";
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -64,4 +64,29 @@ export async function check_rewards(
       await binder.getCurrentRewardAmount(expected.user.address, version)
     ).to.equal(expected.amount);
   }
+}
+
+export async function deployBinder(
+  admin: SignerWithAddress,
+  requirementChecker: RequirementChecker,
+  slotDefinition: any,
+  unstakeLockPeriod: number
+) {
+  const binder = await ethers.deployContract("Binder");
+  const binderNft = await ethers.deployContract("BinderNft", [
+    "Binder",
+    "Binder",
+    binder.address,
+  ]);
+  await binder.initialize(
+    admin.address,
+    binderNft.address,
+    requirementChecker.address,
+    slotDefinition,
+    unstakeLockPeriod
+  );
+  return {
+    binder,
+    binderNft,
+  };
 }

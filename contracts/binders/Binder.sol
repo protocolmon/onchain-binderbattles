@@ -74,6 +74,13 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
      * EVENTS                  *
      ***************************/
 
+    event RequirementCheckerSet(address indexed requirementChecker);
+    event UnstakeLockPeriodSet(uint256 unstakeLockPeriod);
+    event VersionAdded(
+        uint256 indexed version,
+        uint256 indexed id,
+        IParentBinder indexed parentBinder
+    );
     event NftAdded(
         uint256 indexed binderNftId,
         uint256 indexed slotId,
@@ -85,6 +92,11 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
         uint256 indexed slotId,
         address tokenContract,
         uint256 tokenId
+    );
+    event UnlockedNftClaimed(
+        uint256 indexed binderNftId,
+        address indexed owner,
+        uint256 indexed claimedTokenId
     );
 
     /***************************
@@ -162,6 +174,7 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
      ***************************/
 
     /// @notice Add a new version
+    /// Can only be called by the governance role
     /// @param version version number
     /// @param id id of the binder for the specified version known by the parent binder
     /// @param parentBinder parent binder contract
@@ -173,22 +186,30 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
         versions[version].id = id;
         versions[version].parentBinder = parentBinder;
         versionIds.push(version);
+
+        emit VersionAdded(version, id, parentBinder);
     }
 
     /// @notice Set the requirement checker contract
+    /// Can only be called by the governance role
     /// @param _requirementChecker requirement checker contract
     function setRequirementChecker(
         IRequirementChecker _requirementChecker
     ) external onlyRole(GOVERNANCE_ROLE) {
         requirementChecker = _requirementChecker;
+
+        emit RequirementCheckerSet(address(_requirementChecker));
     }
 
     /// @notice Set the unstake lock period
+    /// Can only be called by the governance role
     /// @param _unstakeLockPeriod unstake lock period in seconds
     function setUnstakeLockPeriod(
         uint256 _unstakeLockPeriod
     ) external onlyRole(GOVERNANCE_ROLE) {
         unstakeLockPeriod = _unstakeLockPeriod;
+
+        emit UnstakeLockPeriodSet(_unstakeLockPeriod);
     }
 
     /***************************
@@ -402,6 +423,11 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
                     msg.sender,
                     lockedNft.nft.tokenId
                 );
+                emit UnlockedNftClaimed(
+                    binderNftId,
+                    msg.sender,
+                    lockedNft.nft.tokenId
+                );
             } else {
                 revert NftStillLocked(
                     nftIndexes[i],
@@ -462,7 +488,7 @@ contract Binder is Initializable, AccessControlUpgradeable, IBinder {
         address to,
         uint256 /** binderNftId */
     ) external onlyRole(BINDER_NFT_ROLE) {
-        uint256 shares = 0;
+        uint256 shares = userShares[from];
 
         if (shares > 0) {
             updateRewards();
